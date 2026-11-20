@@ -1,5 +1,5 @@
 import pandas as pd
-from pandas.core.generic import FilePath
+from pandas._typing import FilePath
 from pandas.testing import assert_frame_equal
 
 
@@ -73,8 +73,17 @@ def test_data_correctness(csv_file: FilePath):
     """Сравнивает данные CSV с результатом SQL-запроса"""
     df_csv = pd.read_csv(csv_file)
     df_db = execute_sql_query()
+
+    # 1. Преобразуем колонку из CSV в datetime с часовым поясом
+    # (если pandas еще не распознал её как datetime)
+    df_csv['actual_arrival'] = pd.to_datetime(df_csv['actual_arrival'])
+    
+    # 2. Приводим обе колонки к UTC (или к любому другому единому поясу)
+    df_csv['actual_arrival'] = df_csv['actual_arrival'].dt.tz_convert('UTC')
+    df_db['actual_arrival'] = pd.to_datetime(df_db['actual_arrival']).dt.tz_convert('UTC')
+
     assert_frame_equal(
         df_csv.reset_index(drop=True),
         df_db.reset_index(drop=True),
         check_dtype=False
-    )
+        )
